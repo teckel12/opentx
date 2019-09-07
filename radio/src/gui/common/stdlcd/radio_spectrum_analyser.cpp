@@ -121,6 +121,13 @@ void menuRadioSpectrumAnalyser(event_t event)
     lcdDrawSolidVerticalLine(i, LCD_H - h, h);
   }
 
+  for (uint8_t i=0; i<LCD_W; i++) {
+    uint8_t h = min<uint8_t >(reusableBuffer.spectrumAnalyser.max[i] >> 1, LCD_H);
+    lcdDrawPoint(i, LCD_H - h);
+    if (reusableBuffer.spectrumAnalyser.max[i] > 1)
+      reusableBuffer.spectrumAnalyser.max[i] -= 1;
+  }
+
   int8_t y = max<int8_t>(FH, LCD_H - peak_y - FH);
   lcdDrawNumber(min<uint8_t>(100, peak_x), y, ((reusableBuffer.spectrumAnalyser.freq - reusableBuffer.spectrumAnalyser.span / 2) + peak_x * (reusableBuffer.spectrumAnalyser.span / LCD_W)) / 1000000, TINSIZE);
   lcdDrawText(lcdLastRightPos, y, "M", TINSIZE);
