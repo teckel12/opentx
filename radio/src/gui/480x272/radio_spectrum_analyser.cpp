@@ -166,6 +166,8 @@ bool menuRadioSpectrumAnalyser(event_t event)
       }
     }
     prev_yv = yv;
+    if (reusableBuffer.spectrumAnalyser.max[xv] > 1)
+      reusableBuffer.spectrumAnalyser.max[xv] -= 1;
   }
 
   coord_t y = max<coord_t>(MENU_HEADER_HEIGHT + 1, peak_y - FH);
