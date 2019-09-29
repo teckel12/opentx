@@ -21,6 +21,8 @@
 #include "telemetry.h"
 #include "multi.h"
 
+#define MULTI_CHAN_BITS 11
+
 enum MultiPacketTypes : uint8_t
 {
   MultiStatus = 1,
@@ -34,7 +36,8 @@ enum MultiPacketTypes : uint8_t
   FrskySportPolling,
   HitecTelemetry,
   SpectrumScannerPacket,
-  FlyskyIBusTelemetryAC
+  FlyskyIBusTelemetryAC,
+  MultiRxChannels
 };
 
 enum MultiBufferState : uint8_t
@@ -192,6 +195,43 @@ static void processMultiSyncPacket(const uint8_t * data, uint8_t module)
 #endif
 }
 
+static void processMultiRxChannels(const uint8_t * data)
+{
+  if (g_model.trainerData.mode != TRAINER_MODE_MULTI)
+    return;
+  
+  //uint8_t pps  = data[0];
+  //uint8_t rssi = data[1];
+  int ch    = max(data[2], 0);
+  int maxCh = min(ch + data[3], MAX_TRAINER_CHANNELS);
+
+  uint16_t bits = 0;
+  uint8_t bitsavailable = 0;
+  uint8_t byteIdx = 4;
+
+  while(ch < maxCh) {
+
+    while(bitsavailable < MULTI_CHAN_BITS && byteIdx < 26) {
+      bits |= data[byteIdx++] << bitsavailable;
+      bitsavailable += 8;
+    }
+
+    if (byteIdx >= 26) {
+      // overflow
+      break;
+    }
+  
+    int value = bits & ((1 << MULTI_CHAN_BITS)-1);
+    bitsavailable -= MULTI_CHAN_BITS;
+
+    value = (value - 1024) * 1000 / 800;
+    ppmInput[ch] = limit(-1024, value, 1024);
+    ch++;
+  }
+
+  if (ch == maxCh)
+    ppmInputValidityTimer = PPM_IN_VALID_TIMEOUT;
+}
 
 static void processMultiTelemetryPaket(const uint8_t * packet, uint8_t module)
 {
@@ -275,6 +315,13 @@ static void processMultiTelemetryPaket(const uint8_t * packet, uint8_t module)
       break;
 #endif
 
+    case MultiRxChannels:
+      if (len >= 26)
+        processMultiRxChannels(data);
+      else
+        TRACE("[MP] Received RX channels len %d < 26", len);
+      break;
+      
     default:
       TRACE("[MP] Unkown multi packet type 0x%02X, len %d", type, len);
       break;
